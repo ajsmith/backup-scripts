@@ -43,7 +43,7 @@ pvremove $THINPOOL_DEV
 losetup -d $THINPOOL_DEV
 
 # Backup boot (not an lvm volume)
-$RSYNC --link-dest=$ROOTDIR/backup.1/boot /boot backup.0/boot
+$RSYNC --link-dest=$ROOTDIR/backup.1/boot /boot/ backup.0/boot
 sync
 
 # Remove old backups
