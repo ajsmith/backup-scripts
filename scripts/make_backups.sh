@@ -9,6 +9,7 @@ ROOTDIR=$(pwd)
 RSYNC="rsync -aAX"
 
 # Rotate the backups.
+mv backup.{2,old}
 mv backup.{1,2}
 mv backup.{0,1}
 mkdir backup.0
@@ -40,6 +41,13 @@ lvremove -f fedora/homesnap
 vgreduce fedora $THINPOOL_DEV
 pvremove $THINPOOL_DEV
 losetup -d $THINPOOL_DEV
+
+# Backup boot (not an lvm volume)
+$RSYNC --link-dest=$ROOTDIR/backup.1/boot /boot backup.0/boot
+sync
+
+# Remove old backups
+rm -rf backup.old
 
 # On error:
 # umount vol/
