@@ -9,15 +9,22 @@ ROOTDIR=$(pwd)
 RSYNC="rsync -aAX"
 
 # Rotate the backups.
+mkdir -p backup.{2..0}
 mv backup.{2,old}
 mv backup.{1,2}
 mv backup.{0,1}
 mkdir backup.0
 
+# Ensure file backing for temporary storage exists.
+if [ ! -f snapshot.disk ]
+then
+    truncate -s 40G snapshot.disk
+fi
+
 # Create temporary storage for snapshots.
-THINPOOL_DEV=$(losetup --show -f thinpool.disk)
-pvcreate $THINPOOL_DEV
-vgextend fedora $THINPOOL_DEV
+LOOP_DEV=$(losetup --show -f snapshot.disk)
+pvcreate $LOOP_DEV
+vgextend fedora $LOOP_DEV
 
 # Create the snapshots.
 lvcreate -L 20G --snapshot --name rootsnap fedora/root
@@ -38,9 +45,9 @@ umount vol
 lvremove -f fedora/homesnap
 
 # Remove the temporary snapshot storage.
-vgreduce fedora $THINPOOL_DEV
-pvremove $THINPOOL_DEV
-losetup -d $THINPOOL_DEV
+vgreduce fedora $LOOP_DEV
+pvremove $LOOP_DEV
+losetup -d $LOOP_DEV
 
 # Backup boot (not an lvm volume)
 $RSYNC --link-dest=$ROOTDIR/backup.1/boot /boot/ backup.0/boot
