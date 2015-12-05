@@ -8,12 +8,10 @@ ROOTDIR=$(pwd)
 # Define our rsync command with basic options.
 RSYNC="rsync -aAX"
 
-# Rotate the backups.
-mkdir -p backup.{2..0}
-mv backup.{2,old}
-mv backup.{1,2}
-mv backup.{0,1}
-mkdir backup.0
+# Ensure backup directories exist
+mkdir -p backup.{1..0}/{root,boot,home}
+mkdir -p backup.new
+mkdir -p vol
 
 # Ensure file backing for temporary storage exists.
 if [ ! -f snapshot.disk ]
@@ -30,16 +28,19 @@ vgextend fedora $LOOP_DEV
 lvcreate -L 20G --snapshot --name rootsnap fedora/root
 lvcreate -L 20G --snapshot --name homesnap fedora/home
 
+# Backup boot (not an lvm volume)
+$RSYNC --link-dest=$ROOTDIR/backup.0/boot /boot/ backup.new/boot
+
 # Backup root.
 mount /dev/mapper/fedora-rootsnap vol
-$RSYNC --link-dest=$ROOTDIR/backup.1/root vol/ backup.0/root
+$RSYNC --link-dest=$ROOTDIR/backup.0/root vol/ backup.new/root
 sync
 umount vol
 lvremove -f fedora/rootsnap
 
 # Backup home.
 mount /dev/mapper/fedora-homesnap vol
-$RSYNC --link-dest=$ROOTDIR/backup.1/home vol/ backup.0/home
+$RSYNC --link-dest=$ROOTDIR/backup.0/home vol/ backup.new/home
 sync
 umount vol
 lvremove -f fedora/homesnap
@@ -49,11 +50,14 @@ vgreduce fedora $LOOP_DEV
 pvremove $LOOP_DEV
 losetup -d $LOOP_DEV
 
-# Backup boot (not an lvm volume)
-$RSYNC --link-dest=$ROOTDIR/backup.1/boot /boot/ backup.0/boot
 sync
 
-# Remove old backups
+# Rotate the backups.
+mv backup.{1,old}
+mv backup.{0,1}
+mv backup.{new,0}
+
+# Remove oldest backup
 rm -rf backup.old
 
 # On error:
